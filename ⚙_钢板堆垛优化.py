@@ -97,6 +97,7 @@ if st.session_state["show_stack_config"]:
         st.write(f"Area {area + 1} Stack Dimensions (LxW in mm): {dimensions}")
 
 
+
 # 使用 display_icon_with_header 函数替换现有的图标和标题显示逻辑
 display_icon_with_header("data/icon/icon01.jpg", "数据导入", font_size="24px", icon_size="20px")
 
