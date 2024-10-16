@@ -119,7 +119,7 @@ def display_icon_with_header(icon_path, header_text, font_size="24px"):
 
 
 # 主函数：将字符串分割并返回处理后的DataFrame
-def generate_csv_from_column(df, column_name):
+def generate_csv_from_column(df1, df2, column_name):
     # 去除首尾空格，并将连续空格替换为一个空格
     def clean_string(input_string):
         return re.sub(r'\s+', ' ', input_string.strip())
@@ -159,25 +159,34 @@ def generate_csv_from_column(df, column_name):
 
         return None, None, None
 
-    # 初始化一个新的DataFrame来存储结果
-    result_data = []
+
+    # 假设 df1 和 df2 有相同的 Filename 列，通过 Filename 列合并两个 DataFrame
+    merged_df = pd.merge(df1, df2[['Filename', 'Timestamp', 'Entry Time', 'Delivery Time', 'Batch']],
+                         on=['Filename', 'Timestamp'], how='left')
+
+    result_data = []  # 存储结果的列表
 
     # 对每一行进行分割
-    for index, row in df.iterrows():
+    num = 0
+    for index, row in merged_df.iterrows():
+        num += 1
         input_string = clean_string(row[column_name])
 
+        # 提取各项信息
         material = extract_material(input_string)
         furnace = extract_furnace(input_string, material)
         standard = extract_standard(input_string)
         thickness, length, width = extract_dimensions(input_string)
 
-        # 将filename列也包含到结果中
-        filename = row['Filename'] if 'Filename' in df.columns else None
-        entry_time = row['Entry Time'] if 'Entry Time' in df.columns else None
-        delivery_time = row['Delivery Time'] if 'Delivery Time' in df.columns else None
-        batch = row['Batch'] if 'Batch' in df.columns else None
+        # 获取 df1 中的 Filename 列
+        filename = row['Filename'] if 'Filename' in merged_df.columns else None
 
-        # 将提取到的数据添加到列表中
+        # 从合并后的 df2 中提取 Entry Time、Delivery Time 和 Batch
+        entry_time = row['Entry Time'] if 'Entry Time' in merged_df.columns else None
+        delivery_time = row['Delivery Time'] if 'Delivery Time' in merged_df.columns else None
+        batch = row['Batch'] if 'Batch' in merged_df.columns else None
+
+        # 将提取到的数据添加到结果列表中
         result_data.append({
             "Filename": filename,  # 加入Filename列
             "Material": material,
@@ -186,11 +195,12 @@ def generate_csv_from_column(df, column_name):
             "Thickness": thickness,
             "Width": width,
             "Length": length,
-            "Entry Time": entry_time,
-            "Delivery Time": delivery_time,
-            "Batch": batch
+            "Entry Time": entry_time,  # 来自 df2 的数据
+            "Delivery Time": delivery_time,  # 来自 df2 的数据
+            "Batch": batch  # 来自 df2 的数据
         })
 
+    print(f'num = {num}')
     # 转换为DataFrame
     result_df = pd.DataFrame(result_data)
 

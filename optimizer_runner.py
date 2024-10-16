@@ -71,17 +71,19 @@ class OptimizerRunner:
                 runtime = algo_end_time - algo_start_time
                 optimizer_runtime[optimizer_name] = runtime
                 print(f"### {optimizer_name} 运行时间为：{runtime}")
+                print(f"### {optimizer_name} 最佳得分为：{optimizer.best_score:.2e}")  # 输出评分
 
                 # 保存结果用于比较
                 initial_results.append({
                     "optimizer_name": optimizer_name,
                     "best_score": optimizer.best_score,
-                    "best_position": optimizer.best_individual
+                    "best_position": optimizer.best_position  # 统一使用best_position
                 })
 
             # 选择初始解中评分最低的结果
             best_initial_result = min(initial_results, key=lambda x: x["best_score"])
-            print(f"### 最佳初始解为：{best_initial_result['optimizer_name']}，得分为：{best_initial_result['best_score']:.2e}")
+            print(
+                f"### 最佳初始解为：{best_initial_result['optimizer_name']}，得分为：{best_initial_result['best_score']:.2e}")
 
             # 使用 SA 进行进一步优化
             print("### 使用 SA 进行进一步优化...")
@@ -96,12 +98,14 @@ class OptimizerRunner:
             sa_runtime = sa_end_time - algo_end_time
             optimizer_runtime["SA_with_Batch"] = sa_runtime
             print(f"### SA 运行时间为：{sa_runtime}")
+            print(f"### SA 最佳得分为：{optimizer.best_score:.2e}")  # 输出SA评分
 
             # 保存最终结果
             self.results.append({
                 "optimizer_name": "SA_with_Batch",
                 "best_score": optimizer.best_score,
-                "output_file": save_and_visualize_results(optimizer, self.df, self.area_positions, self.output_dir_base, "SA_with_Batch")
+                "output_file": save_and_visualize_results(optimizer, self.df, self.area_positions, self.output_dir_base,
+                                                          "SA_with_Batch")
             })
 
         elif self.flag == 2:
@@ -124,6 +128,7 @@ class OptimizerRunner:
                 runtime = algo_end_time - algo_start_time
                 optimizer_runtime[optimizer_name] = runtime
                 print(f"### {optimizer_name} 运行时间为：{runtime}")
+                print(f"### {optimizer_name} 最佳得分为：{optimizer.best_score:.2e}")  # 输出评分
 
                 # 保存和可视化结果
                 output_file_plates_with_batch = save_and_visualize_results(optimizer, self.df, self.area_positions, self.output_dir_base, optimizer_name)
@@ -174,3 +179,4 @@ class OptimizerRunner:
 
         # 提供下载按钮
         add_download_button(best_result['output_file'], best_result['optimizer_name'])
+

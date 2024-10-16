@@ -10,7 +10,7 @@ import streamlit as st
 from utils import save_convergence_history, save_performance_metrics
 from optimization_utils import evaluate_parallel, evaluate_with_cache
 from optimization_utils import apply_adaptive_sa
-
+from optimization_utils import apply_adaptive_pso, apply_adaptive_sa, apply_adaptive_ga, apply_adaptive_coea, apply_adaptive_eda
 
 
 

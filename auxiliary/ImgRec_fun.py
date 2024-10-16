@@ -130,7 +130,8 @@ class ImgRec:
     #文件夹图像识别
     def process_images_from_folder(self, folder_path, progress_placeholder, IMAGE_SAVE_DIR, table_data=None):
         """对文件夹中的所有图像进行OCR识别并返回结果，加入图片校正和调整过程"""
-        data = []
+        data1 = []
+        data2 = []
         image_files = [f for f in os.listdir(folder_path) if f.endswith(('.jpg', '.png', '.bmp'))]
         total_images = len(image_files)
 
@@ -160,21 +161,24 @@ class ImgRec:
             self.average_confidences.append(average_confidence)
 
             # 将数据追加到data中
-            data.append(
+            data1.append(
                 {"Filename": file_name, "Recognized Text": recognition_text, "Average Confidence": average_confidence,
-                 "Accuracy": accuracy, "Timestamp": timestamp,
+                 "Accuracy": accuracy, "Timestamp": timestamp})
+            data2.append(
+                {"Filename": file_name, "Timestamp": timestamp,
                  "Entry Time": entry_time, "Delivery Time": delivery_time, "Batch": Batch})
 
             # 更新进度条
             progress_placeholder.progress((idx + 1) / total_images)
 
         # plot_confidences(self.average_confidences)
-        return data, total_images
+        return data1, data2, total_images
 
     # 上传图片识别
     def process_uploaded_images(self, uploaded_files, progress_placeholder, IMAGE_SAVE_DIR):
         """处理上传的图片并返回识别结果"""
-        data = []  # 保存识别结果的列表
+        data1 = []
+        data2 = []
         total_files = len(uploaded_files)  # 上传文件总数
 
         if total_files == 0:
@@ -187,6 +191,7 @@ class ImgRec:
         # 获取当前时间和交付时间
         entry_time = datetime.now().strftime('%Y-%m-%d')  # 当前日期
         delivery_time = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')  # 30天后的日期
+        Batch = 'Q' + str(self.Batch)
 
         for idx, uploaded_file in enumerate(uploaded_files):
             image = Image.open(uploaded_file)  # 打开图片
@@ -195,14 +200,16 @@ class ImgRec:
             self.average_confidences.append(average_confidence)
 
             # 将数据追加到data中
-            data.append(
+            data1.append(
                 {"Filename": file_name, "Recognized Text": recognition_text, "Average Confidence": average_confidence,
-                 "Accuracy": accuracy, "Timestamp": timestamp,
-                 "Entry Time": entry_time, "Delivery Time": delivery_time, "Batch": self.Batch})
+                 "Accuracy": accuracy, "Timestamp": timestamp})
+            data2.append(
+                {"Filename": file_name, "Timestamp": timestamp,
+                 "Entry Time": entry_time, "Delivery Time": delivery_time, "Batch": Batch})
 
             # 更新进度条
             progress_placeholder.progress((idx + 1) / total_files)
-        return data  # 返回识别数据列表
+        return data1, data2  # 返回识别数据列表
 
 
     def Image_Recongnotion(self, IMAGE_SAVE_DIR, CSV_FILE_PATH):
@@ -268,15 +275,18 @@ class ImgRec:
                             if os.path.exists(folder_path):
                                 progress_placeholder = st.empty()
                                 # 进行识别
-                                data, total_images = self.process_images_from_folder(folder_path, progress_placeholder,
+                                data1, data2, total_images = self.process_images_from_folder(folder_path, progress_placeholder,
                                                                                 IMAGE_SAVE_DIR,table_data)
 
                                 if total_images == 0:
                                     st.warning(f'⚠️ 文件夹 {selected_subfolder} 中未找到任何图像！')
-                                elif data:
-                                    ru.append_to_csv(data, CSV_FILE_PATH)
-                                    df = pd.DataFrame(data)
-                                    self.Rec_df = df
+                                else:
+                                    if data1:
+                                        ru.append_to_csv(data1, CSV_FILE_PATH)
+                                        df = pd.DataFrame(data1)
+                                        self.Rec_df = df
+                                    if data2:
+                                        ru.append_to_csv(data2, 'result/ImageRecognition_CSV/other_result.csv')
 
                                     placeholder.success(
                                         f'✅ 识别完成！结果已保存到 recognized_results.csv （文件夹：{selected_subfolder}）')
@@ -309,12 +319,14 @@ class ImgRec:
                     placeholder.info('正在识别图像中的钢板编号...')
                     with st.spinner('加载中，请稍候...'):
                         progress_placeholder = st.empty()
-                        data = self.process_uploaded_images(uploaded_files, progress_placeholder, IMAGE_SAVE_DIR)
-                        if data:
-                            ru.append_to_csv(data, CSV_FILE_PATH)
-                            df = pd.DataFrame(data)
+                        data1, data2,  = self.process_uploaded_images(uploaded_files, progress_placeholder, IMAGE_SAVE_DIR)
+                        if data1:
+                            ru.append_to_csv(data1, CSV_FILE_PATH)
+                            df = pd.DataFrame(data1)
                             st.dataframe(df)  # 实时显示当前处理的图像结果
                             placeholder.success('✅ 识别完成！结果已保存到 recognized_results.csv')
+                        if data2:
+                            ru.append_to_csv(data2, 'result/ImageRecognition_CSV/other_result.csv')
                         progress_placeholder.empty()
                 if self.Rec_df is not None:
                     result_title.markdown("<h5 style='text-align: left; color: black;'>📋  最新识别结果：</h5>",
@@ -429,14 +441,17 @@ class ImgRec:
 
                         progress_placeholder = st.empty()
                         # 进行识别
-                        data, total_images = self.process_images_from_folder(final_frames_folder, progress_placeholder,
+                        data1, data2, total_images = self.process_images_from_folder(final_frames_folder, progress_placeholder,
                                                                              IMAGE_SAVE_DIR)
 
                         if total_images == 0:
                             placeholder.warning(f'⚠️ 未找到任何图像！')
-                        elif data:
-                            ru.append_to_csv(data, CSV_FILE_PATH)
-                            df = pd.DataFrame(data)
+                        else:
+                            if data1:
+                                ru.append_to_csv(data1, CSV_FILE_PATH)
+                                df = pd.DataFrame(data1)
+                            if data2:
+                                ru.append_to_csv(data2, 'result/ImageRecognition_CSV/other_result.csv')
                             placeholder.success(
                                 f'✅ 识别完成！结果已保存到 recognized_results.csv')
                         progress_placeholder.empty()
@@ -480,11 +495,8 @@ def csv_display(CSV_FILE_PATH):
     # 创建两个列
     col_download, col_clear = st.columns([0.5, 0.5])
 
-    # 处理下载 CSV 的逻辑
-
     # 处理清除 CSV 内容的逻辑
     with col_clear:
-
         # 显示识别结果（CSV 表格）
         if os.path.exists(CSV_FILE_PATH):
             if ru.is_csv_empty(CSV_FILE_PATH):  # 检查 CSV 是否为空
@@ -495,6 +507,7 @@ def csv_display(CSV_FILE_PATH):
                     with st.spinner('正在清除 CSV 文件内容...'):
                         try:
                             ru.clear_csv(CSV_FILE_PATH)  # 调用自定义的清除 CSV 文件内容的函数
+                            ru.clear_csv('result/ImageRecognition_CSV/other_result.csv')
                             st.success('✅ CSV 文件内容已清除')
                         except Exception as e:
                             st.error(f"❌ 清除 CSV 文件时出错: {e}")
@@ -508,43 +521,49 @@ def csv_display(CSV_FILE_PATH):
                     st.warning('⚠️ 没有可用的识别数据')
         else:
             st.warning('⚠️ CSV 文件不存在。')
-
+# 处理下载 CSV 的逻辑
     with col_download:
-        # 读取项目中的CSV文件
-        if os.path.exists(CSV_FILE_PATH):
-            if ru.is_csv_empty(CSV_FILE_PATH):  # 检查 CSV 是否为空
-                st.warning('⚠️ 没有可用的识别数据')
+        if os.path.exists(CSV_FILE_PATH):  # 检查CSV文件路径是否存在
+            if ru.is_csv_empty(CSV_FILE_PATH):  # 检查CSV文件是否为空
+                st.warning('⚠️ 没有可用的识别数据')  # 如果为空，提示警告信息
             else:
-                # 读取CSV文件
-                df = pd.read_csv(CSV_FILE_PATH)
-                # 检查是否有“Recognized Text”和“Filename”列
-                if "Recognized Text" in df.columns and "Filename" in df.columns and "Entry Time" in df.columns and "Delivery Time" in df.columns and "Batch" in df.columns:
-                    # 假设 ru.generate_csv_from_column 是你自定义的函数，用来生成新的CSV文件
-                    result_df = ru.generate_csv_from_column(df, "Recognized Text")
-                    result_file_path = 'result/ImageRecognition_CSV/Output_steel_data.csv'
-                    # 将结果保存到指定文件夹
-                    result_df.to_csv(result_file_path, index=False)
-                    # 下载按钮，导出结果为 CSV 文件
-                    csv = result_df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="下载处理后的CSV文件",
-                        data=csv,
-                        file_name='Output_steel_data.csv',
-                        mime='text/csv',
-                    )
+                # 读取两个CSV文件
+                df1 = pd.read_csv(CSV_FILE_PATH)
+                df2 = pd.read_csv('result/ImageRecognition_CSV/other_result.csv')
 
-                    # 使用缩小比例显示处理后的结果DataFrame
-                    st.markdown('<div class="scaled-table">', unsafe_allow_html=True)
+                # 检查必要的列是否存在
+                if "Recognized Text" in df1.columns and "Filename" in df1.columns and \
+                        "Filename" in df2.columns and "Entry Time" in df2.columns and "Delivery Time" in df2.columns and "Batch" in df2.columns:
+
+                    # 调用自定义函数生成新的CSV文件
+                    result_df = ru.generate_csv_from_column(df1, df2, "Recognized Text")
+
+                    # 保存结果到指定文件
+                    result_file_path = 'result/ImageRecognition_CSV/Output_steel_data.csv'
+                    result_df.to_csv(result_file_path, index=False)
+
+                    # 转换DataFrame为CSV格式并编码为UTF-8
+                    csv = result_df.to_csv(index=False).encode('utf-8')
+
+                    # 确保生成的CSV内容存在后再显示下载按钮
+                    if csv:
+                        st.download_button(
+                            label="下载处理后的CSV文件",  # 按钮的标签
+                            data=csv,  # 下载的数据
+                            file_name='Output_steel_data.csv',  # 下载文件的名称
+                            mime='text/csv',  # 文件的MIME类型
+                        )
+
+                    # 显示处理后的DataFrame
                     st.dataframe(result_df)
-                    st.markdown('</div>', unsafe_allow_html=True)
                 else:
-                    # 错误提示，如果必要的列不存在
-                    if "Recognized Text" not in df.columns:
+                    # 如果必要的列不存在，显示错误提示信息
+                    if "Recognized Text" not in df1.columns:
                         st.error("CSV文件中没有找到 'Recognized Text' 列")
-                    if "Filename" not in df.columns:
+                    if "Filename" not in df1.columns:
                         st.error("CSV文件中没有找到 'Filename' 列")
         else:
-            st.warning("⚠️ CSV 文件不存在。")
+            st.warning("⚠️ CSV 文件不存在。")  # 如果文件不存在，提示警告信息
 
 def Rec_history_image(IMAGE_SAVE_DIR):
     # 添加标题
@@ -788,8 +807,4 @@ def calculate_accuracy(recognized_text, correct_text):
     # 准确率 = 匹配字符数 / 正确编码的总长度
     accuracy = match_count / len(correct_text) if len(correct_text) > 0 else 0
     return accuracy
-
-
-
-
 

@@ -11,7 +11,8 @@ from optimization_utils import apply_adaptive_sa
 
 class SA_with_Batch:
     def __init__(self, initial_temperature, cooling_rate, min_temperature, max_iterations, lambda_1, lambda_2,
-                 lambda_3, lambda_4, num_positions, num_plates, dataset_name, objectives, use_adaptive):
+                 lambda_3, lambda_4, num_positions, num_plates, dataset_name, objectives, use_adaptive,
+                 initial_solution=None):  # 添加initial_solution参数
         self.initial_temperature = initial_temperature
         self.cooling_rate = cooling_rate
         self.min_temperature = min_temperature
@@ -35,6 +36,9 @@ class SA_with_Batch:
         self.start_time = None
         self.cache = {}
         self.score_changes = []
+        self.initial_solution = initial_solution  # 保存初始解
+
+
 
     def evaluate_with_cache(self, position):
         return evaluate_with_cache(self.cache, position, self.evaluate)
@@ -54,10 +58,11 @@ class SA_with_Batch:
         except Exception as e:
             logging.error(f"Error in evaluation: {e}")
             return np.inf
-
     def optimize(self):
-        initial_position = np.random.randint(0, self.num_positions, size=self.num_plates)
+        # 使用提供的初始解进行优化
+        initial_position = self.initial_solution if self.initial_solution is not None else np.random.randint(0, self.num_positions, size=self.num_plates)
         return self.optimize_from_position(initial_position)
+
 
     def optimize_from_position(self, initial_position):
         current_temperature = self.initial_temperature

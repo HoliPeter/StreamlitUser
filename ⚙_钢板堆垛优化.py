@@ -2,16 +2,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-import plotly.graph_objects as go
-import plotly.express as px
 from optimization_objectives import SteelPlateStackingObjectives as OptimizationObjectives
-# 从 PSOSA 优化器引入 PSO_SA_Optimizer
 from optimizers.psosa_optimizer import PSO_SA_Optimizer
-from optimizers.eda_optimizer import EDA_with_Batch  # 引入 EDA 优化算法
-from optimizers.ga_optimizer import GA_with_Batch  # 引入 GA 优化算法
-from optimizers.co_ea_optimizer import CoEA_with_Batch  # 引入 CoEA 优化算法
 from utils import save_convergence_history, add_download_button, run_optimization, display_icon_with_header
 from optimizer_runner import OptimizerRunner  # 导入优化算法管理器
+# 设定默认的图片文件夹路径
+image_folder_path = "data/introduction_src/images01"
+
 
 # 从 constants 文件中引入常量
 from constants import (
@@ -33,70 +30,118 @@ os.makedirs(output_dir_base, exist_ok=True)
 st.title("⚙ 智能钢板堆垛系统")
 
 
-use_default_config = st.checkbox("Use default warehouse and stack configuration", value=True)
-
+use_default_config = st.checkbox("使用默认库区配置", value=True)
 
 # 检查是否使用默认配置
 if not use_default_config:
-    # 使用正确的参数格式创建两列布局
-    cols = st.columns([0.3, 0.7])  # 使用列表来指定列宽比例
-    col11, col12= cols  # 解包列对象
-
-    with col11:
-        # 如果用户选择自定义配置，显示相关输入框
-        num_areas = st.number_input("区域数量", 1, 10, 6)
-
-    # 继续后续的逻辑...
+    # 使用下拉框选择当前配置的库区
     area_positions = {}
     stack_dimensions = {}
-    for area in range(num_areas):
-        st.write(f"### 区域 {area + 1}")
-        # 使用正确的参数格式创建两列布局
-        cols = st.columns([0.3, 0.7])  # 使用列表来指定列宽比例
-        col16, col17 = cols  # 解包列对象
-        with col16:
-            num_stacks = st.number_input(f"区域 {area + 1} 中的垛位数量", 1, 10, 4, key=f'num_stacks_area_{area}')
-        area_stack_positions = []
-        area_stack_dimensions = []
-        for stack in range(num_stacks):
-            # 使用正确的参数格式创建两列布局
-            cols = st.columns([0.3, 0.3, 0.4])  # 使用列表来指定列宽比例
-            col13, col14, col15 = cols  # 解包列对象
-            with col13:
-                x = st.number_input(f"垛位 {stack + 1} 的 X 坐标", key=f'stack_x_area_{area}_{stack}')
-            with col14:
-                y = st.number_input(f"垛位 {stack + 1} 的 Y 坐标", key=f'stack_y_area_{area}_{stack}')
-            with col13:
-                width = st.number_input(f"垛位 {stack + 1} 宽度 (毫米)", 1000, 20000, 6000, key=f'stack_width_area_{area}_{stack}')
-            with col14:
-                length = st.number_input(f"垛位 {stack + 1} 长度 (毫米)", 1000, 20000, 3000, key=f'stack_length_area_{area}_{stack}')
-            area_stack_positions.append((x, y))
-            area_stack_dimensions.append((length, width))
 
-        area_positions[area] = area_stack_positions
-        stack_dimensions[area] = area_stack_dimensions
+    # 如果用户选择自定义配置，显示相关输入框
+    num_areas = st.number_input("请输入库区数量", 1, 10, 6)
+
+    # 初始化各个库区的配置
+    for area in range(num_areas):
+        area_positions[area] = []
+        stack_dimensions[area] = []
+
+    selected_area = st.selectbox(
+        "选择要配置的库区",
+        [f"库区 {i + 1}" for i in range(num_areas)],
+        key="selected_area"
+    )
+    area_index = int(selected_area.split(" ")[1]) - 1
+
+    # 输入当前库区的垛位数量
+    num_stacks = st.number_input(f"请输入 {selected_area} 的垛位数量", 1, 10, 4, key=f'num_stacks_area_{area_index}')
+
+    # 垛位配置
+    area_stack_positions = []
+    area_stack_dimensions = []
+
+    for stack in range(num_stacks):
+        # 三列布局输入垛位的坐标和尺寸
+        cols = st.columns([0.3, 0.3, 0.4])
+        col13, col14, col15 = cols  # 解包列对象
+        with col13:
+            x = st.number_input(f"垛位 {stack + 1} 的 X 坐标", key=f'stack_x_area_{area_index}_{stack}')
+        with col14:
+            y = st.number_input(f"垛位 {stack + 1} 的 Y 坐标", key=f'stack_y_area_{area_index}_{stack}')
+        with col13:
+            width = st.number_input(f"垛位 {stack + 1} 的宽度（毫米）", 1000, 20000, 6000,
+                                    key=f'stack_width_area_{area_index}_{stack}')
+        with col14:
+            length = st.number_input(f"垛位 {stack + 1} 的长度（毫米）", 1000, 20000, 3000,
+                                     key=f'stack_length_area_{area_index}_{stack}')
+
+        # 保存当前垛位的配置
+        area_stack_positions.append((x, y))
+        area_stack_dimensions.append((length, width))
+
+    # 更新当前库区的配置
+    area_positions[area_index] = area_stack_positions
+    stack_dimensions[area_index] = area_stack_dimensions
+
 else:
     # 使用默认配置
     area_positions = DEFAULT_AREA_POSITIONS
     stack_dimensions = DEFAULT_STACK_DIMENSIONS
 
+
+
 # 查看当前配置
 if "show_stack_config" not in st.session_state:
     st.session_state["show_stack_config"] = False
 
-if st.button("View/Hide Current Stack Configuration"):
+if st.button("View Configuration"):
     st.session_state["show_stack_config"] = not st.session_state["show_stack_config"]
 
 if st.session_state["show_stack_config"]:
-    st.write("### Current Area Positions")
+    st.write("### 当前库区配置")
+
+    # 将区域位置和堆垛尺寸转换为DataFrame格式
+    positions_data = []
+    dimensions_data = []
+
     for area, positions in area_positions.items():
-        st.write(f"Area {area + 1} Stack Positions: {positions}")
+        for i, (x, y) in enumerate(positions):
+            positions_data.append([f"区域 {area + 1}", f"垛位 {i + 1}", x, y])
 
-    st.write("### Current Stack Dimensions")
     for area, dimensions in stack_dimensions.items():
-        st.write(f"Area {area + 1} Stack Dimensions (LxW in mm): {dimensions}")
+        for i, (length, width) in enumerate(dimensions):
+            dimensions_data.append([f"区域 {area + 1}", f"垛位 {i + 1}", length, width])
 
+    # 创建DataFrame
+    positions_df = pd.DataFrame(positions_data, columns=["区域", "垛位", "X 坐标 (毫米)", "Y 坐标 (毫米)"])
+    dimensions_df = pd.DataFrame(dimensions_data, columns=["区域", "垛位", "长度 (毫米)", "宽度 (毫米)"])
 
+    # 显示表格
+    cols = st.columns([0.4, 0.4, 0.2])
+    col011, col012, col013 = cols
+
+    with col011:
+        st.write("#### 区域位置")
+        st.dataframe(positions_df)
+
+    with col012:
+        st.write("#### 堆垛尺寸")
+        st.dataframe(dimensions_df)
+
+    # 显示表格
+    col014, col015, col016 = st.columns([0.3, 0.3, 0.4])
+    with col014:
+        st.write("#### 库区图片")
+        image_files = [f for f in os.listdir(image_folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        selected_image = st.selectbox("选择库区图片", ["请选择"] + image_files)
+
+        # 设置图片的显示大小
+        max_image_width = 600  # 设置图片的最大宽度，单位为像素
+
+        # 显示选中的图片
+        if selected_image != "请选择":
+            image_path = os.path.join(image_folder_path, selected_image)
+            st.image(image_path, caption=f"库区图片 - {selected_image}", width=max_image_width)
 
 # 使用 display_icon_with_header 函数替换现有的图标和标题显示逻辑
 display_icon_with_header("data/icon/icon01.jpg", "数据导入", font_size="24px", icon_size="20px")
@@ -151,7 +196,7 @@ start_work = st.button("Start Work")
 initial_temperature = 1000.0
 cooling_rate = 0.9
 min_temperature = 0.1
-max_iterations_sa = 1
+max_iterations_sa = 3
 num_particles = 30  # 粒子群大小
 max_iter_pso = 1  # PSO最大迭代次数
 w, c1, c2 = 0.5, 1.5, 1.5  # PSO 参数
@@ -206,6 +251,37 @@ if df is not None:
 
     # 多种优化算法的参数配置
     algorithms_params = {
+        "PSO_with_Batch": {
+            'num_particles': num_particles,
+            'num_positions': num_positions,
+            'num_plates': num_plates,  # 添加 num_plates 参数
+            'w': w,
+            'c1': c1,
+            'c2': c2,
+            'max_iter': max_iter_pso,
+            'lambda_1': lambda_1,
+            'lambda_2': lambda_2,
+            'lambda_3': lambda_3,
+            'lambda_4': lambda_4,
+            'dataset_name': dataset_name,
+            'objectives': objectives,
+            'use_adaptive': use_adaptive
+        },
+        "SA_with_Batch": {
+            'initial_temperature': initial_temperature,
+            'cooling_rate': cooling_rate,
+            'min_temperature': min_temperature,
+            'max_iterations': max_iterations_sa,
+            'lambda_1': lambda_1,
+            'lambda_2': lambda_2,
+            'lambda_3': lambda_3,
+            'lambda_4': lambda_4,
+            'num_positions': num_positions,
+            'num_plates': num_plates,
+            'dataset_name': dataset_name,
+            'objectives': objectives,
+            'use_adaptive': use_adaptive
+        },
         "PSO_SA_Optimizer": {
             'num_particles': num_particles,
             'num_positions': num_positions,
@@ -221,7 +297,6 @@ if df is not None:
             'lambda_2': lambda_2,
             'lambda_3': lambda_3,
             'lambda_4': lambda_4,
-            'num_positions': num_positions,  # 库区/垛位数量
             'num_plates': num_plates,  # 钢板数量
             'dataset_name': dataset_name,
             'objectives': objectives,
