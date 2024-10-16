@@ -3,26 +3,30 @@ import pandas as pd
 import os
 import streamlit as st
 from datetime import datetime
-from optimizers.psosa_optimizer import PSO_SA_Optimizer
+from optimizers.pso_optimizer import PSO_with_Batch  # 引入 PSO_with_Batch
+from optimizers.psosa_optimizer import PSO_SA_Optimizer  # PSO_SA 优化算法
 from optimizers.eda_optimizer import EDA_with_Batch  # EDA 优化算法
 from optimizers.ga_optimizer import GA_with_Batch  # 引入 GA 优化算法
 from optimizers.co_ea_optimizer import CoEA_with_Batch  # 引入 CoEA 优化算法
-from utils import save_and_visualize_results, generate_stacking_distribution_statistics, generate_stacking_heatmaps, show_stacking_distribution_statistics, show_stacking_height_distribution_chart, add_download_button  # 确保正确导入
+from optimizers.sa_optimizer import SA_with_Batch  # 引入 SA_with_Batch
+from utils import save_and_visualize_results, generate_stacking_distribution_statistics, generate_stacking_heatmaps, show_stacking_distribution_statistics, show_stacking_height_distribution_chart, add_download_button
 
 class OptimizerRunner:
-    def __init__(self, algorithms_params, df, area_positions, output_dir_base):
+    def __init__(self, algorithms_params, df, area_positions, output_dir_base, flag=1):
         """
         初始化类，指定优化算法、数据集、库区分布和输出路径
         :param algorithms_params: 各种算法及其参数的字典
         :param df: 待优化的数据集
         :param area_positions: 库区的分布情况
         :param output_dir_base: 输出文件保存路径
+        :param flag: 控制优化策略，1 表示选取最佳初始解后使用 SA 优化，2 表示分别运行各算法并选择最佳结果
         """
         self.algorithms_params = algorithms_params
         self.df = df
         self.area_positions = area_positions
         self.output_dir_base = output_dir_base
         self.results = []
+        self.flag = flag
 
     def run_optimization(self):
         """
@@ -32,37 +36,104 @@ class OptimizerRunner:
 
         # 记录优化开始时间
         start_time = datetime.now()
+        optimizer_runtime = {}  # 用于记录每个优化器的运行时间
 
         optimizer_classes = {
-            "PSO_SA_Optimizer": PSO_SA_Optimizer,
-            "EDA_with_Batch": EDA_with_Batch,  # 假设已实现 EDA 算法
-            "GA_with_Batch": GA_with_Batch,  # 新增 GA 算法
-            "CoEA_with_Batch": CoEA_with_Batch  # 新增 CoEA 算法
+            "PSO_with_Batch": PSO_with_Batch,
+            "PSO_SA_Optimizer": PSO_SA_Optimizer,  # 添加 PSO_SA_Optimizer
+            "EDA_with_Batch": EDA_with_Batch,
+            "GA_with_Batch": GA_with_Batch,
+            "CoEA_with_Batch": CoEA_with_Batch
         }
 
-        # 逐个算法进行优化
-        for optimizer_name, optimizer_params in self.algorithms_params.items():
-            optimizer_class = optimizer_classes.get(optimizer_name)
-            if not optimizer_class:
-                print(f"未找到 {optimizer_name} 的优化器类，跳过此优化器。")
-                continue
+        if self.flag == 1:
+            # Flag = 1: 先使用多种算法选出最佳初始解，再用 SA 继续优化
+            print("### 先使用多种算法运行并选取最佳初始解，然后使用 SA 进一步优化...")
+            initial_results = []
 
-            print(f"### 正在运行 {optimizer_name} ...")
-            optimizer = optimizer_class(**optimizer_params)
+            # 使用 PSO、GA、EDA、CoEA 选出初始解
+            for optimizer_name in ["PSO_with_Batch", "EDA_with_Batch", "GA_with_Batch", "CoEA_with_Batch"]:
+                optimizer_params = self.algorithms_params.get(optimizer_name)
+                optimizer_class = optimizer_classes.get(optimizer_name)
+
+                if not optimizer_class or not optimizer_params:
+                    print(f"未找到 {optimizer_name} 的优化器类或参数，跳过此优化器。")
+                    continue
+
+                print(f"### 正在运行 {optimizer_name} ...")
+                algo_start_time = datetime.now()
+
+                optimizer = optimizer_class(**optimizer_params)
+                optimizer.optimize()
+
+                # 记录当前算法的运行时间
+                algo_end_time = datetime.now()
+                runtime = algo_end_time - algo_start_time
+                optimizer_runtime[optimizer_name] = runtime
+                print(f"### {optimizer_name} 运行时间为：{runtime}")
+
+                # 保存结果用于比较
+                initial_results.append({
+                    "optimizer_name": optimizer_name,
+                    "best_score": optimizer.best_score,
+                    "best_position": optimizer.best_individual
+                })
+
+            # 选择初始解中评分最低的结果
+            best_initial_result = min(initial_results, key=lambda x: x["best_score"])
+            print(f"### 最佳初始解为：{best_initial_result['optimizer_name']}，得分为：{best_initial_result['best_score']:.2e}")
+
+            # 使用 SA 进行进一步优化
+            print("### 使用 SA 进行进一步优化...")
+            sa_params = self.algorithms_params["SA_with_Batch"]
+            sa_params["initial_solution"] = best_initial_result["best_position"]
+
+            optimizer = SA_with_Batch(**sa_params)
             optimizer.optimize()
 
-            # 保存和可视化结果
-            output_file_plates_with_batch = save_and_visualize_results(optimizer, self.df, self.area_positions,
-                                                                       self.output_dir_base, optimizer_name)
-            # 这里只记录数据，不展示
-            generate_stacking_distribution_statistics(self.df, self.area_positions, self.output_dir_base, optimizer_name)
+            # 记录 SA 运行时间
+            sa_end_time = datetime.now()
+            sa_runtime = sa_end_time - algo_end_time
+            optimizer_runtime["SA_with_Batch"] = sa_runtime
+            print(f"### SA 运行时间为：{sa_runtime}")
 
-            # 存储每个优化器的最佳分数及其结果
+            # 保存最终结果
             self.results.append({
-                "optimizer_name": optimizer_name,
+                "optimizer_name": "SA_with_Batch",
                 "best_score": optimizer.best_score,
-                "output_file": output_file_plates_with_batch
+                "output_file": save_and_visualize_results(optimizer, self.df, self.area_positions, self.output_dir_base, "SA_with_Batch")
             })
+
+        elif self.flag == 2:
+            # Flag = 2: 按原来的方式运行多种算法并选择最佳结果
+            print("### 分别运行各算法并选择最佳结果...")
+            for optimizer_name, optimizer_params in self.algorithms_params.items():
+                optimizer_class = optimizer_classes.get(optimizer_name)
+                if not optimizer_class:
+                    print(f"未找到 {optimizer_name} 的优化器类，跳过此优化器。")
+                    continue
+
+                print(f"### 正在运行 {optimizer_name} ...")
+                algo_start_time = datetime.now()
+
+                optimizer = optimizer_class(**optimizer_params)
+                optimizer.optimize()
+
+                # 记录当前算法的运行时间
+                algo_end_time = datetime.now()
+                runtime = algo_end_time - algo_start_time
+                optimizer_runtime[optimizer_name] = runtime
+                print(f"### {optimizer_name} 运行时间为：{runtime}")
+
+                # 保存和可视化结果
+                output_file_plates_with_batch = save_and_visualize_results(optimizer, self.df, self.area_positions, self.output_dir_base, optimizer_name)
+
+                # 存储每个优化器的最佳分数及其结果
+                self.results.append({
+                    "optimizer_name": optimizer_name,
+                    "best_score": optimizer.best_score,
+                    "output_file": output_file_plates_with_batch
+                })
 
         # 选择最佳的优化结果
         self.select_best_result()
@@ -70,10 +141,10 @@ class OptimizerRunner:
         # 记录优化结束时间并计算总运行时间
         end_time = datetime.now()
         total_runtime = end_time - start_time
-        print(f"### 总共运行时间为：{total_runtime}")
-
-        # 在Streamlit界面显示总共运行时间
-        st.write(f"### 总共运行时间为：{total_runtime}")
+        print("\n### 各优化算法运行时间：")
+        for optimizer_name, runtime in optimizer_runtime.items():
+            print(f"{optimizer_name}：{runtime}")
+        print(f"\n### 总共运行时间为：{total_runtime}")
 
     def select_best_result(self):
         """

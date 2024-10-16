@@ -146,16 +146,6 @@ class PSO_with_Batch:
         )
 
 
-import streamlit as st
-import numpy as np
-import pandas as pd
-import time
-import os
-import logging
-from utils import save_convergence_history, save_performance_metrics
-from optimization_utils import evaluate_parallel, evaluate_with_cache
-from optimization_utils import apply_adaptive_sa
-
 class SA_with_Batch:
     def __init__(self, initial_temperature, cooling_rate, min_temperature, max_iterations, lambda_1, lambda_2,
                  lambda_3, lambda_4, num_positions, num_plates, dataset_name, objectives, use_adaptive):

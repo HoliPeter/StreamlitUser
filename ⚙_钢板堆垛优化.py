@@ -25,11 +25,77 @@ from constants import (
 # Streamlit 页面配置
 st.set_page_config(page_title="智能钢板堆垛系统", page_icon="⚙", layout="wide")
 
+
 # 创建用于保存图像的目录
 output_dir_base = "result/"
 os.makedirs(output_dir_base, exist_ok=True)
 
 st.title("⚙ 智能钢板堆垛系统")
+
+
+use_default_config = st.checkbox("Use default warehouse and stack configuration", value=True)
+
+
+# 检查是否使用默认配置
+if not use_default_config:
+    # 使用正确的参数格式创建两列布局
+    cols = st.columns([0.3, 0.7])  # 使用列表来指定列宽比例
+    col11, col12= cols  # 解包列对象
+
+    with col11:
+        # 如果用户选择自定义配置，显示相关输入框
+        num_areas = st.number_input("区域数量", 1, 10, 6)
+
+    # 继续后续的逻辑...
+    area_positions = {}
+    stack_dimensions = {}
+    for area in range(num_areas):
+        st.write(f"### 区域 {area + 1}")
+        # 使用正确的参数格式创建两列布局
+        cols = st.columns([0.3, 0.7])  # 使用列表来指定列宽比例
+        col16, col17 = cols  # 解包列对象
+        with col16:
+            num_stacks = st.number_input(f"区域 {area + 1} 中的垛位数量", 1, 10, 4, key=f'num_stacks_area_{area}')
+        area_stack_positions = []
+        area_stack_dimensions = []
+        for stack in range(num_stacks):
+            # 使用正确的参数格式创建两列布局
+            cols = st.columns([0.3, 0.3, 0.4])  # 使用列表来指定列宽比例
+            col13, col14, col15 = cols  # 解包列对象
+            with col13:
+                x = st.number_input(f"垛位 {stack + 1} 的 X 坐标", key=f'stack_x_area_{area}_{stack}')
+            with col14:
+                y = st.number_input(f"垛位 {stack + 1} 的 Y 坐标", key=f'stack_y_area_{area}_{stack}')
+            with col13:
+                width = st.number_input(f"垛位 {stack + 1} 宽度 (毫米)", 1000, 20000, 6000, key=f'stack_width_area_{area}_{stack}')
+            with col14:
+                length = st.number_input(f"垛位 {stack + 1} 长度 (毫米)", 1000, 20000, 3000, key=f'stack_length_area_{area}_{stack}')
+            area_stack_positions.append((x, y))
+            area_stack_dimensions.append((length, width))
+
+        area_positions[area] = area_stack_positions
+        stack_dimensions[area] = area_stack_dimensions
+else:
+    # 使用默认配置
+    area_positions = DEFAULT_AREA_POSITIONS
+    stack_dimensions = DEFAULT_STACK_DIMENSIONS
+
+# 查看当前配置
+if "show_stack_config" not in st.session_state:
+    st.session_state["show_stack_config"] = False
+
+if st.button("View/Hide Current Stack Configuration"):
+    st.session_state["show_stack_config"] = not st.session_state["show_stack_config"]
+
+if st.session_state["show_stack_config"]:
+    st.write("### Current Area Positions")
+    for area, positions in area_positions.items():
+        st.write(f"Area {area + 1} Stack Positions: {positions}")
+
+    st.write("### Current Stack Dimensions")
+    for area, dimensions in stack_dimensions.items():
+        st.write(f"Area {area + 1} Stack Dimensions (LxW in mm): {dimensions}")
+
 
 # 使用 display_icon_with_header 函数替换现有的图标和标题显示逻辑
 display_icon_with_header("data/icon/icon01.jpg", "数据导入", font_size="24px", icon_size="20px")
