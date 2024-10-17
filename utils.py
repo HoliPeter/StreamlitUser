@@ -6,14 +6,8 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
 import base64
+import uuid  # 引入 UUID 模块
 
-# 从 constants 文件中引入常量
-from constants import (
-    OUTPUT_DIR, CONVERGENCE_DIR, DATA_DIR, TEST_DATA_PATH,
-    DEFAULT_AREA_POSITIONS, DEFAULT_STACK_DIMENSIONS,
-    HORIZONTAL_SPEED, VERTICAL_SPEED, STACK_FLIP_TIME_PER_PLATE,
-    INBOUND_POINT, OUTBOUND_POINT, Dki
-)
 
 def extract_timestamp_from_filename(file_name):
     parts = file_name.split('_')
@@ -137,16 +131,21 @@ def show_stacking_distribution_statistics(result_df, algorithm_name, output_dir_
 
     return final_stack_distribution_path
 
-# 绘制堆垛高度分布图
+
+
 def show_stacking_height_distribution_chart(all_positions, all_heights, algorithm_name):
     # 使用 display_icon_with_header 函数替换部分的展示
     col3, col4, col11 = st.columns([0.01, 0.25, 0.55])
     with col3:
         st.image("data/icon/icon02.jpg", width=20)
     with col4:
-        # 选择图表类型
-        chart_type = st.selectbox("选择图表类型", ["组合图 (柱状图+折线图)", "柱状图", "折线图", "面积图"],
-                                  key=f"chart_selectbox_{algorithm_name}")
+        # 选择图表类型，使用 algorithm_name 和一个随机的 UUID 来生成唯一的 key
+        unique_key = f"chart_selectbox_{algorithm_name}_{uuid.uuid4()}"
+        chart_type = st.selectbox(
+            "选择图表类型",
+            ["组合图 (柱状图+折线图)"],
+            key=unique_key
+        )
 
     def get_bar_width(num_positions):
         if num_positions <= 3:
@@ -202,6 +201,7 @@ def show_stacking_height_distribution_chart(all_positions, all_heights, algorith
     # 显示图表
     st.plotly_chart(fig, use_container_width=True)
 
+
 # 修改 generate_stacking_distribution_statistics，将计算逻辑与展示逻辑分离
 def generate_stacking_distribution_statistics(df, area_positions, output_dir_base, algorithm_name):
     height_dict = {}
@@ -256,17 +256,18 @@ def generate_stacking_distribution_statistics(df, area_positions, output_dir_bas
     return result_df, all_positions, all_heights
 
 
-
 def add_download_button(file_path, algorithm_name):
-
     # 使用 display_icon_with_header 函数替换现有的图标和标题显示逻辑
     display_icon_with_header("data/icon/icon01.jpg", "堆垛分布详情", font_size="24px", icon_size="20px")
     with open(file_path, 'rb') as file:
+        # 为 download_button 生成一个唯一的 key
+        unique_key = f"download_button_{algorithm_name}_{uuid.uuid4()}"
         st.download_button(
             label=f"Download Result",
             data=file,
             file_name=f'final_stack_distribution_plates_{algorithm_name}.csv',
-            mime='text/csv'
+            mime='text/csv',
+            key=unique_key  # 使用唯一的 key
         )
     df_plates_with_batch = pd.read_csv(file_path)
     st.dataframe(df_plates_with_batch.head(5))
@@ -428,5 +429,21 @@ def display_icon_with_header(icon_path, header_text, font_size="24px", icon_size
 
 
 
-
+# 自定义函数来创建带有图标和标题的组合，并在右侧放置下拉框
+def display_icon_with_selectbox(icon_path, header_text, options, font_size="14px", icon_size="20px", key=None):
+    if os.path.exists(icon_path):
+        # 将图片转换为 Base64 格式
+        img_base64 = image_to_base64(icon_path)
+        # 使用 HTML 和 CSS 实现图标和标题的对齐，并减少间隙
+        st.markdown(
+            f"""
+            <div style="display: flex; align-items: center; margin-bottom: -12px;">
+                <img src="data:image/png;base64,{img_base64}" width="{icon_size}" style="margin-right: 8px;">
+                <span style="font-size: {font_size}; line-height: 1.2;">{header_text}</span>
+            </div>
+            """, unsafe_allow_html=True
+        )
+    # 在标题下方放置下拉框
+    selected_option = st.selectbox("", options, key=key)
+    return selected_option
 

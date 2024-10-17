@@ -46,7 +46,39 @@ class OptimizerRunner:
             "CoEA_with_Batch": CoEA_with_Batch
         }
 
-        if self.flag == 1:
+        if self.flag == 0:
+            # Flag=0: 只运行 PSO_SA_Optimizer 进行普通优化
+            print("### 运行 PSO_SA_Optimizer 进行普通优化...")
+            optimizer_name = "PSO_SA_Optimizer"
+            optimizer_params = self.algorithms_params[optimizer_name]
+            optimizer_class = optimizer_classes[optimizer_name]
+
+            algo_start_time = datetime.now()
+
+            optimizer = optimizer_class(**optimizer_params)
+            optimizer.optimize()
+
+            # 记录当前算法的运行时间
+            algo_end_time = datetime.now()
+            runtime = algo_end_time - algo_start_time
+            optimizer_runtime[optimizer_name] = runtime
+            print(f"### {optimizer_name} 运行时间为：{runtime}")
+            print(f"### {optimizer_name} 最佳得分为：{optimizer.best_score:.2e}")
+
+            # 保存和可视化结果
+            output_file_plates_with_batch = save_and_visualize_results(
+                optimizer, self.df, self.area_positions, self.output_dir_base, optimizer_name)
+
+            # 存储优化结果
+            self.results.append({
+                "optimizer_name": optimizer_name,
+                "best_score": optimizer.best_score,
+                "output_file": output_file_plates_with_batch
+            })
+
+
+
+        elif self.flag == 1:
             # Flag = 1: 先使用多种算法选出最佳初始解，再用 SA 继续优化
             print("### 先使用多种算法运行并选取最佳初始解，然后使用 SA 进一步优化...")
             initial_results = []

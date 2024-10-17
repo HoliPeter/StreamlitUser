@@ -1,0 +1,9 @@
+BASE_IMAGE_DIR = 'data/plate_img'  #图像数据集根目录
+BASE_VIDEO_DIR = 'data/plate_video'    #图像数据集根目录
+IMAGE_SAVE_DIR = 'result/ImageRecognition_Img' #图片保存路径
+frames_cache_folder = "data/video_frames/frames_cache"
+frames_final_folder = "data/video_frames/final_frames"
+CSV_FILE_DIR = 'result/ImageRecognition_CSV'   #csv结果文件夹路径
+CSV_FILE_PATH = CSV_FILE_DIR + '/recognized_results.csv'  #编码识别csv路径
+CSV_OTHER_PATH = CSV_FILE_DIR + '/other_result.csv'   #出入库时间，批次csv路径
+CSV_OUTPUT_PATH = CSV_FILE_DIR + '/Output_steel_data.csv' #编码分割csv路径

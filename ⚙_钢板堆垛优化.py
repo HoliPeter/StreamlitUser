@@ -4,11 +4,13 @@ import numpy as np
 import os
 from optimization_objectives import SteelPlateStackingObjectives as OptimizationObjectives
 from optimizers.psosa_optimizer import PSO_SA_Optimizer
-from utils import save_convergence_history, add_download_button, run_optimization, display_icon_with_header
+from utils import save_convergence_history, add_download_button, run_optimization, display_icon_with_header,display_icon_with_selectbox
 from optimizer_runner import OptimizerRunner  # 导入优化算法管理器
+import time
+
 # 设定默认的图片文件夹路径
 image_folder_path = "data/introduction_src/images01"
-
+icon_path = "data/icon/icon02.jpg"
 
 # 从 constants 文件中引入常量
 from constants import (
@@ -27,10 +29,21 @@ st.set_page_config(page_title="智能钢板堆垛系统", page_icon="⚙", layou
 output_dir_base = "result/"
 os.makedirs(output_dir_base, exist_ok=True)
 
-st.title("⚙ 智能钢板堆垛系统")
+# st.title("⚙ 智能钢板堆垛系统")
+# 使用 HTML 和 CSS 设置标题居中和字体
+st.markdown(
+    """
+    <h1 style='text-align: center; font-family: SimSun;'>
+        ⚙ 智能钢板堆垛系统
+    </h1>
+    """,
+    unsafe_allow_html=True
+)
 
+col021,col22,col23= st.columns([0.2,0.2,0.6])
+with col021:
 
-use_default_config = st.checkbox("使用默认库区配置", value=True)
+    use_default_config = st.checkbox("使用默认库区配置", value=True)
 
 # 检查是否使用默认配置
 if not use_default_config:
@@ -89,18 +102,29 @@ else:
     stack_dimensions = DEFAULT_STACK_DIMENSIONS
 
 
+with col22:
+    if st.button("🗄️查看配置"):
+        st.session_state["show_stack_config"] = not st.session_state["show_stack_config"]
 
 # 查看当前配置
 if "show_stack_config" not in st.session_state:
     st.session_state["show_stack_config"] = False
 
-if st.button("View Configuration"):
-    st.session_state["show_stack_config"] = not st.session_state["show_stack_config"]
+
+# 使用 st.empty() 占位符来显示提示信息
+info_placeholder = st.empty()
+
+if st.session_state["show_stack_config"]:
+    # 显示提示信息
+    info_placeholder.info("提示：再次点击按钮可隐藏当前配置...")
+    # 三秒后自动清除提示信息
+    time.sleep(1)
+    info_placeholder.empty()
 
 if st.session_state["show_stack_config"]:
     st.write("### 当前库区配置")
 
-    # 将区域位置和堆垛尺寸转换为DataFrame格式
+    # 将区域位置和堆垛尺寸转换为 DataFrame 格式
     positions_data = []
     dimensions_data = []
 
@@ -112,7 +136,7 @@ if st.session_state["show_stack_config"]:
         for i, (length, width) in enumerate(dimensions):
             dimensions_data.append([f"区域 {area + 1}", f"垛位 {i + 1}", length, width])
 
-    # 创建DataFrame
+    # 创建 DataFrame
     positions_df = pd.DataFrame(positions_data, columns=["区域", "垛位", "X 坐标 (毫米)", "Y 坐标 (毫米)"])
     dimensions_df = pd.DataFrame(dimensions_data, columns=["区域", "垛位", "长度 (毫米)", "宽度 (毫米)"])
 
@@ -143,20 +167,26 @@ if st.session_state["show_stack_config"]:
             image_path = os.path.join(image_folder_path, selected_image)
             st.image(image_path, caption=f"库区图片 - {selected_image}", width=max_image_width)
 
+
+
 # 使用 display_icon_with_header 函数替换现有的图标和标题显示逻辑
 display_icon_with_header("data/icon/icon01.jpg", "数据导入", font_size="24px", icon_size="20px")
 
 # 使用 display_icon_with_header 函数替换部分的展示
-col3, col4, col11 = st.columns([0.01, 0.25, 0.55])
+col3, col4 = st.columns([0.3, 0.7])
 with col3:
-    st.image("data/icon/icon02.jpg", width=20)
-with col4:
-    data_choice = st.selectbox("选择数据集", ["使用系统数据集", "上传自定义数据集"])
+    options = ["使用系统数据集", "上传自定义数据集"]
+    data_choice = display_icon_with_selectbox(icon_path, "选择数据集", options)
+
 
 
 df = None
 dataset_name = None
 system_data_dir = "data/Steel_Data"
+
+
+# 检查是否选择了数据集
+data_selected = False
 
 # 导入数据集的逻辑
 if data_choice == "上传自定义数据集":
@@ -166,37 +196,122 @@ if data_choice == "上传自定义数据集":
         df = pd.read_csv(uploaded_file)
         st.write("已上传的数据集：")
         st.write(df.head())
+        data_selected = True  # 表示数据已选择
     else:
         st.warning("请上传数据集以继续。")
 elif data_choice == "使用系统数据集":
-    # 创建两列布局，分别放置选择数据集和选择优化模式
-    col7, col5, col8, col6, col9 = st.columns([0.01, 0.2, 0.01, 0.1, 0.3])
+    # 使用自定义函数创建选择数据集和优化模式的布局
+    col5, col6, col7 = st.columns([0.3, 0.3, 0.4])
 
-    with col7:
-        st.image("data/icon/icon02.jpg", width=20)
-    # 左侧列：选择系统数据集
     with col5:
+        # 左侧：选择数据集
         available_datasets = [f.replace('.csv', '') for f in os.listdir(system_data_dir) if f.endswith('.csv')]
-        selected_dataset = st.selectbox("选择系统数据集", [""] + available_datasets)
+        selected_dataset = display_icon_with_selectbox(
+            "data/icon/icon02.jpg",
+            "选择系统数据集",
+            [""] + available_datasets,
+            key="dataset_selectbox"
+        )
         if selected_dataset:
             dataset_name = selected_dataset
             system_dataset_path = os.path.join(system_data_dir, f"{selected_dataset}.csv")
             df = pd.read_csv(system_dataset_path)
-    with col8:
-        st.image("data/icon/icon02.jpg", width=20)
-    # 右侧列：选择优化模式
+            data_selected = True  # 表示数据已选择
+
     with col6:
-        optimization_mode = st.selectbox("选择优化模式", ["普通优化", "深度优化"])
+        # 右侧：选择优化模式
+        optimization_mode = display_icon_with_selectbox(
+            "data/icon/icon02.jpg",
+            "选择优化模式",
+            ["普通优化", "深度优化"],
+            key="optimization_mode_selectbox"
+        )
 
 
-start_work = st.button("Start Work")
+import time
+
+# 初始化显示/隐藏数据集的状态
+if "show_dataset" not in st.session_state:
+    st.session_state["show_dataset"] = False
+
+# 创建按钮布局
+col1, col2 = st.columns([0.3, 0.7])
+
+with col1:
+    # 左侧：查看训练数据集按钮
+    view_dataset = st.button("🗳️ 查看数据集")
+
+    # 切换显示/隐藏状态
+    if view_dataset:
+        st.session_state["show_dataset"] = not st.session_state["show_dataset"]
+        # 显示提示信息，并在2秒钟后自动消失
+        placeholder = st.empty()
+        if st.session_state["show_dataset"]:
+            placeholder.info("再次点击按钮可隐藏训练数据集")
+
+        time.sleep(1)  # 等待2秒
+        placeholder.empty()  # 清空提示信息
+
+with col2:
+    # 右侧：开始优化按钮
+    start_work = st.button("🔧 开始优化")
+
+# 如果需要显示数据集
+if st.session_state["show_dataset"]:
+    if 'df' in locals() and data_selected:
+        st.write("#### 训练数据集预览")
+
+        # 分页显示数据集
+        page_size = 10  # 每页显示10行
+        total_rows = df.shape[0]
+        total_pages = (total_rows + page_size - 1) // page_size  # 计算总页数
+
+        col25,col26=st.columns([0.5,0.5])
+
+        with col25:
+            # 选择页码
+            page_num = st.number_input(
+                f"选择页码 (共 {total_pages} 页)",
+                min_value=1,
+                max_value=total_pages,
+                step=1,
+                value=1,
+                format="%d",
+            )
+
+        # 计算当前页数据的起始和结束索引
+        start_idx = (page_num - 1) * page_size
+        end_idx = min(start_idx + page_size, total_rows)
+
+        # 显示当前页的数据
+        st.dataframe(df.iloc[start_idx:end_idx])
+
+        # 显示当前页码和总页数
+        st.write(f"当前显示第 {page_num} 页，共 {total_pages} 页")
+    else:
+        st.warning("尚未选择数据集，请先选择数据集。")
+
+# 在没有选择数据集的情况下，点击“开始优化”按钮时的提示
+if start_work and not ('df' in locals() and data_selected):
+    st.warning("请先选择训练数据集后再开始优化。")
+
+
+
+
+if start_work:
+    if not data_selected:
+        # 没有选择数据集时显示提示信息，并在三秒后自动消失
+        warning_placeholder = st.empty()
+        warning_placeholder.warning("请先选择数据集后再继续优化...")
+        time.sleep(3)
+        warning_placeholder.empty()
 
 
 # 优化参数配置
 initial_temperature = 1000.0
 cooling_rate = 0.9
 min_temperature = 0.1
-max_iterations_sa = 3
+max_iterations_sa = 5
 num_particles = 30  # 粒子群大小
 max_iter_pso = 1  # PSO最大迭代次数
 w, c1, c2 = 0.5, 1.5, 1.5  # PSO 参数
@@ -351,10 +466,13 @@ if df is not None:
     }
 
     if start_work:
+        # 使用 OptimizerRunner 进行优化
         if optimization_mode == "深度优化":  # 判断用户是否选择深度优化模式
-            # 启用深度优化，运行多个优化算法并选择最佳方案
-            optimizer_runner = OptimizerRunner(algorithms_params, df, DEFAULT_AREA_POSITIONS, output_dir_base)
+            # 启用深度优化，运行多个优化算法并选择最佳方案，Flag=2 表示多种算法分别运行
+            optimizer_runner = OptimizerRunner(algorithms_params, df, DEFAULT_AREA_POSITIONS, output_dir_base, flag=1)
             optimizer_runner.run_optimization()
         else:
-            # 仅运行单一优化算法 PSO_SA_Optimizer
-            run_optimization(PSO_SA_Optimizer, algorithms_params["PSO_SA_Optimizer"], df, DEFAULT_AREA_POSITIONS, output_dir_base, "psosa")
+            # 普通优化，Flag=0 表示只使用单一算法 PSO_SA_Optimizer
+            optimizer_runner = OptimizerRunner(algorithms_params, df, DEFAULT_AREA_POSITIONS, output_dir_base, flag=0)
+            optimizer_runner.run_optimization()
+
